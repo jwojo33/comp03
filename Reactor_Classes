@@ -1,0 +1,39 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import rx_data
+
+from scipy import linalg
+from Reactor_Slice_Class_Method import ReactorSlice
+
+class Reactor:
+    def __init__(self, slices, reactor_size, enrichment, nuc, rxdata, simlulation_time, dt, power, shielding=False):
+        self.reactor_size = reactor_size
+        self.dx = float(reactor_size / [slices-1])
+        self.enrich = enrichment
+        self.slices = slices
+        self.time = 0
+        self.rxdata = rxdata
+        self.microxs = rxdata[0]
+        self.fy = rxdata[1]
+        self.flux = []
+        self.nuc = nuc
+        self.simulation_time = simlulation_time
+        self.dt = dt
+        self.power = power
+        self.build_reactor_slices = []
+        self.scaling_constant = 0
+        self.k = []
+        self.initial_comp = self.initialize_EN()
+        self.rxslices = []
+        self.shielding_constant = shielding
+
+    def build_reactor_sizes(self):
+        if self.shielding_constant == False:
+            for _ in range(self.slices):
+                self.rxslices.append(ReactorSlice(self.dx,self.initial_comp,self.rxdata,self.nuc))
+        elif self.shielding_constant == True:
+
+
+
+
+
