@@ -1,0 +1,63 @@
+microscopic_cross_sections = {
+    'U235': {'xs_fission': 585.1 / (10**24),
+             'xs_absorption': 673.9 / (10**24),
+             'xs_scattering': 15.12 / (10**24)},
+    'U238': {'xs_fission': 0./ (10**24),
+             'xs_absorption': 2.6 / (10**24),
+             'xs_scattering': 9.3/ (10**24)},
+    'Pu239': {'xs_fission': 747.4/ (10**24),
+              'xs_absorption': 1020.0/ (10**24),
+              'xs_scattering': 8.813/ (10**24),},
+    'Pu240': {'xs_fission': .056/ (10**24),
+              'xs_absorption': 289.5/ (10**24),
+              'xs_scattering': 1.73/ (10**24) },
+    'Pu241': {'xs_absorption': 362.1/ (10**24),
+              'xs_scattering': 8.9/ (10**24),
+              'xs_fission': 1011.1/ (10**24) },
+    'Pu242': {'xs_absorption': 18.9/ (10**24),
+              'xs_scattering': 8.45/ (10**24),
+              'xs_fission': .16/ (10**24) },
+    'Xe135': {'xs_absorption': 24/ (10**24),
+              'xs_scattering': 4.3/ (10**24),
+              'xs_fission': .16/ (10**24),
+              'lambda': 3e-5},
+    'I135': {'xs_absorption': 0/ (10**24),
+             'xs_scattering': 0/ (10**24),
+             'xs_fission': .16 / (10 ** 24),
+             'lambda': 2.926e-5},
+    'H2O': {'xs_fission': 0./ (10**24), # which fission are we using?
+            'xs_absorption': 0.664/ (10**24),
+            'xs_fission': .16 / (10 ** 24),
+            'xs_scattering': 103.0/ (10**24)},
+    'LP':{'xs_scattering': 0,
+          'xs_absorption': 0,
+          'xs_fission': 0
+          }
+}
+
+
+# need fission yield for all isotopes
+fission_yield = {
+    'U235': {
+        'I135': .067,
+        'Xe135': .0055
+    },
+    'Pu239': {
+        'I135': .065,
+        'Xe135': .0107
+    },
+    'Pu241': {
+        'I135': .0695,
+        'Xe135': .002269
+    }
+
+}
+
+'''
+    f_frag_U235_I135 = 0.067
+    f_frag_U235_Xe135 = 0.0055
+    f_frag_Pu239_I135 = 0.065
+    f_frag_Pu239_Xe135 = 0.0107
+    f_frag_Pu241_I135 = 0.0695
+    f_frag_Pu241_Xe135 = .002269
+'''
