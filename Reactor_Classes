@@ -1,11 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-import rx_data
+import rx_data_2 as rx_data
 
 
 from scipy import linalg
-from Reactor_Slices_Class_Method import ReactorSlice
+from Reactor_Slice_Class_Method import ReactorSlice
 
 class Reactor:
     def __init__(self, slices, reactor_size, enrichment, nu, rxdata, simlulation_time, dt, power):
@@ -26,8 +26,9 @@ class Reactor:
         self.scaling_constant = 0
         self.k = []
         self.initial_comp = self.initialize_EN()
+        self.initial_wj = self.initialized_WJ()
         self.rxslices = []
-        self.shielding_constant = False # need to work on true false
+        self.shielding_constant = True # need to work on true false
         self.build_reactor_slices()
 
 
@@ -38,18 +39,28 @@ class Reactor:
             for _ in range(self.slices):
                 self.rxslices.append(ReactorSlice(self.dx, self.initial_comp, self.rxdata, self.nuclides))
         elif self.shielding_constant == True:
-            for _ in range(self.slices):
-                self.rxslices.append()
+            for _ in range(int(self.slices/4)):
+                self.rxslices.append(ReactorSlice(self.dx, self.initial_wj, self.rxdata, self.nuclides))
+            for _ in range(int(self.slices/2)):
                 self.rxslices.append(ReactorSlice(self.dx, self.initial_comp, self.rxdata, self.nuclides))
-                self.rxslices.append()
+            for _ in range(int(self.slices/4)):
+                self.rxslices.append(ReactorSlice(self.dx, self.initial_wj, self.rxdata, self.nuclides))
 
     def initialize_EN(self):
         N_U = 18.65 / ((1 - self.enrich) * 238 + (self.enrich) * 235) * 6.022e23
         N_U235 = self.enrich * N_U * 0.5
-        N_U238 = self.enrich * N_U * 0.5
+        N_U238 = (1 - self.enrich) * N_U * 0.5
         N_H2O = 0.5 / 18 * 6.022e23
-
+        print(N_U235, N_U238)
         return (N_U235, N_U238, 0, 0, 0, 0, 0, 0, 0, N_H2O)
+
+    def initialized_WJ(self):
+        N_U = 18.65 / ((1 - self.enrich) * 238 + (self.enrich) * 235) * 6.022e23
+        N_U235 = self.enrich * N_U * 0.5
+        N_U238 = self.enrich * N_U * 0.5
+        N_H2O = 1 / 18 * 6.022e23
+
+        return (0, 0, 0, 0, 0, 0, 0, 0, 0, N_H2O)
 
     def build_constants_array(self, time):
         d = [0] * self.slices
@@ -64,6 +75,7 @@ class Reactor:
             i += 1
         d.insert(0, d[0])
         d.append(d[-1])
+        print(d)
 
         return d, sig_a, sig_f
 
@@ -112,11 +124,17 @@ class Reactor:
         d, sigma_a, sigma_f = self.build_constants_array(time)
         diff_matrix = self.build_diffusion_matrix(d, sigma_a)
         fission_matrix = self.build_fission_matrix(sigma_f)
+        print('diff_matrix', diff_matrix)
+        print('fission_matrix', fission_matrix)
         w, v = linalg.eig(diff_matrix, b=fission_matrix)
+        w[w == np.inf] = -1e299
+        print('eigenvalues', w)
+        #print('eigenvectors', v)
         flux = np.abs(v[:, np.argmax(w)])
         for i in range(self.slices):
             self.rxslices[i].flux = flux[i]
         flux = self.calculate_scaled_flux(flux)
+        #print(flux)
         self.flux.append(flux)
 
         '''
@@ -193,7 +211,7 @@ class Reactor:
 
 def reactor():
         rxdata = [rx_data.microscopic_cross_sections, rx_data.fission_yield]
-        x = Reactor(4, 1,.03,2.4, rxdata, 1000*86400,300,0.001)
+        x = Reactor(12, 2,.024,2.4, rxdata, 10*86400,86400,0.001)
         x.burn_reactor()
         return x
 
