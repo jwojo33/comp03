@@ -1,5 +1,5 @@
 import numpy as np
-import rx_data
+import rx_data_2 as rx_data
 
 class ReactorSlice:
     def __init__(self,dx,compositions, rxdata, nuclides):
@@ -20,14 +20,19 @@ class ReactorSlice:
         #print(self.microxs.keys())
         sig_s = 0.
         for i in range(len(self.evolution_compositions[time])):
-            sig_s += self.evolution_compositions[time][i] * self.microxs[self.nuclides[i]]['xs_scattering'] * 1E-24
+            sig_s += self.evolution_compositions[time][i] * self.microxs[self.nuclides[i]]['xs_scattering'] * 1e-24
+            print(self.nuclides[i])
+        #if sig_s != 0:
         d = 1 / (3 * sig_s)
+        #else:
+         #   d = 0
+
         self.d = d
 
     def calculate_sigma_a(self,time):
         sigma_a = 0.
         for i in range(len(self.evolution_compositions[time])):
-            sigma_a += self.evolution_compositions[time][i] * self.microxs[self.nuclides[i]]['xs_absorption'] * 1E-24
+            sigma_a += self.evolution_compositions[time][i] * self.microxs[self.nuclides[i]]['xs_absorption'] * 1e-24
         self.sig_a = sigma_a
 
     def calculate_sigma_f(self, time):
@@ -47,6 +52,7 @@ class ReactorSlice:
         rrm = np.zeros((len(self.nuclides), len(self.nuclides)))
         xs = rx_data.microscopic_cross_sections
         fy = rx_data.fission_yield
+        #print('flux', self.flux)
         # U235
         rrm[self.nuclides.index('U235'), self.nuclides.index('U235')] = - 1e-24 * self.flux * (
                     xs['U235']['xs_absorption'] + xs['U235']['xs_fission'])
@@ -83,11 +89,15 @@ class ReactorSlice:
                                                    xs['Pu239']['xs_fission']
         rrm[self.nuclides.index('LP'), self.nuclides.index('Pu241')] = 1e-24 * self.flux * (2 - fy['Pu241']['Xe135'] - fy['Pu241']['I135']) * \
                                                    xs['Pu241']['xs_fission']
+        #H2O
+        rrm[self.nuclides.index('H2O'), self.nuclides.index('H2O')] = 0
+
         self.rrm = rrm
+        #print('reaction_rate_matrix', rrm)
 
     def evolution_solver(self, dt, time):
-        #print(self.rrm)
-        #print(self.evolution_compositions)
+        # print(self.rrm)
+        # print(self.evolution_compositions)
         rrm_id = np.identity(len(self.evolution_compositions[time])) - (dt * self.rrm)
         compositions = np.linalg.solve(rrm_id, self.evolution_compositions[time])
         self.evolution_compositions[time+dt] = compositions
