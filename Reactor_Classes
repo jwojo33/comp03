@@ -1,11 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
-import rx_data_2 as rx_data
+import math
+import rx_data as rx_data
+import scipy
 
 
 from scipy import linalg
-from Reactor_Slice_Class_Method import ReactorSlice
+from Reactor_Slices_Class_Method import ReactorSlice
 
 class Reactor:
     def __init__(self, slices, reactor_size, enrichment, nu, rxdata, simlulation_time, dt, power):
@@ -51,7 +52,7 @@ class Reactor:
         N_U235 = self.enrich * N_U * 0.5
         N_U238 = (1 - self.enrich) * N_U * 0.5
         N_H2O = 0.5 / 18 * 6.022e23
-        print(N_U235, N_U238)
+        #print(N_U235, N_U238)
         return (N_U235, N_U238, 0, 0, 0, 0, 0, 0, 0, N_H2O)
 
     def initialized_WJ(self):
@@ -75,7 +76,7 @@ class Reactor:
             i += 1
         d.insert(0, d[0])
         d.append(d[-1])
-        print(d)
+        #print(d)
 
         return d, sig_a, sig_f
 
@@ -124,11 +125,11 @@ class Reactor:
         d, sigma_a, sigma_f = self.build_constants_array(time)
         diff_matrix = self.build_diffusion_matrix(d, sigma_a)
         fission_matrix = self.build_fission_matrix(sigma_f)
-        print('diff_matrix', diff_matrix)
-        print('fission_matrix', fission_matrix)
+        #print('diff_matrix', diff_matrix)
+        #print('fission_matrix', fission_matrix)
         w, v = linalg.eig(diff_matrix, b=fission_matrix)
         w[w == np.inf] = -1e299
-        print('eigenvalues', w)
+        #print('eigenvalues', w)
         #print('eigenvectors', v)
         flux = np.abs(v[:, np.argmax(w)])
         for i in range(self.slices):
@@ -186,47 +187,126 @@ class Reactor:
         i = 0
         for s_slice in self.rxslices:
             iso_array = []
-            for t in range(len(s_slice.evolution_composition)):
-                iso_array.append((s_slice.evolution_composition[t * self.dt][isotope]))
+            for t in range(len(s_slice.evolution_compositions)):
+                iso_array.append((s_slice.evolution_compositions[t * self.dt][isotope]))
             label = str(self.nuclides[isotope] + ' number density for slice ' + str(i))
             plt.plot(iso_array, label=label)
             i+=1
         plt.title(self.nuclides[isotope] + ' number density')
         plt.legend()
+        #plt.yscale('log')
         plt.show()
 
     def plot_flux_by_time(self):
         l = len(self.flux)
+        #for i in range(l):
+        #    plt.plot(self.flux[i], label=f"{i}L")
+
         plt.plot(self.flux[0], label = 'Start')
-        plt.plot(self.flux[int(1 / 5)], label='1L')
-        plt.plot(self.flux[int(2 / 5)], label='2L')
-        plt.plot(self.flux[int(3 / 5)], label='3L')
-        plt.plot(self.flux[int(4 / 5)], label='4L')
+        plt.plot(self.flux[int(l / 5)], label='1L')
+        plt.plot(self.flux[int((2*l) / 5)], label='2L')
+        plt.plot(self.flux[int((3*l) / 5)], label='3L')
+        plt.plot(self.flux[int((4*l) / 5)], label='4L')
         plt.plot(self.flux[-1], label = 'End')
         #plt.yscale('log')
         plt.title('Flux Evolution')
         plt.legend()
         plt.show()
 
+    def o_res(self, E1, E2, Eres, T, step):
+        O_res = []
+        k = self.calculate_criticality()
+
+        o_r = 13.98 * 10**-24
+        o_res_int = 0
+        A_ur = 92
+        while E1 < E2:
+            gamma_d = ((4 * Eres * k * T) / A_ur) ** .5
+            O_res.append(o_r * (math.exp(-((E1 - Eres) ** 2) / (gamma_d ** 2))))
+            E1 += step
+        for i in O_res:
+            o_res_int += i
+
+        #print(o_res_int)
+        return O_res
+
+
+    def approx_flux(self, E1, E2, S, step):
+        appFlux = []
+        sig_s = rx_data.microscopic_cross_sections['U238']['xs_scattering'] * 1e-24
+        sig_f = (rx_data.microscopic_cross_sections['U238']['xs_fission'] + rx_data.microscopic_cross_sections['U235']['xs_fission']) * 1e-24
+        # convert to Kg/cm3 s
+
+        S = (S)/(sig_f * 200)
+        A_w = 18
+        sci = 2 / (A_w + 2 / 3)
+
+        while E1<E2:
+            appFlux.append(S/(E1*sig_s*sci))
+            E1 += step
+
+        return appFlux
+
+    def RA(self,E1, E2, Eres, S, T, step):
+        RA_int = 0
+        N_U = 18.65 / ((1 - self.enrich) * 238 + (self.enrich) * 235) * 6.022e23
+        N = (1 - self.enrich) * N_U * 0.5
+        o_res = self.o_res(E1, E2, Eres, T, step)
+        approx_flux = self.approx_flux(E1, E2, S, step)
+
+        i = 0
+        while i < step:
+            RA_int += o_res[i] * approx_flux[i]
+            i += 1
+        RA = N * RA_int
+
+        return RA
+
+    def escape_prob(self,S):
+        RA = self.RA(0.025,50,6.67,10e6,293,1)
+        sig_f = (rx_data.microscopic_cross_sections['U238']['xs_fission'] + rx_data.microscopic_cross_sections['U235'][
+            'xs_fission']) * 1e-24
+        # convert to Kg/cm3 s
+        S = (S * 10e-6) / (sig_f * 200000000)
+
+        prob = 1 - ((RA) / (S))
+
+        print(S)
+        return prob
 
 def reactor():
         rxdata = [rx_data.microscopic_cross_sections, rx_data.fission_yield]
-        x = Reactor(12, 2,.024,2.4, rxdata, 10*86400,86400,0.001)
+        x = Reactor(8, 2,.024,2.4, rxdata, 180*86400,86400,0.001)
         x.burn_reactor()
         return x
 
 
+
 x = reactor()
 
-plt.plot(x.k)
-plt.title('Criticality')
-plt.show()
-x.plot_flux()
-#x.plot_flux(0)
-#x.plot_flux(1)
-#x.plot_flux(2)
-#x.plot_flux(3)
-#x.plot_flux(4)
+#plt.plot(x.k)
+#plt.title('Criticality')
+#plt.show()
+#x.plot_flux()
+#x.plot_iso(0)
+#x.plot_iso(1)
+#x.plot_iso(2)
+#x.plot_iso(3)
+#x.plot_iso(4)
+#x.plot_iso(5)
+#x.plot_iso(6)
+#x.plot_iso(7)
+#x.plot_iso(8)
+
 
 #print(x.initial_comp)
-x.plot_flux_by_time()
+#x.plot_flux_by_time()
+
+
+
+# plot o_res
+#plt.plot(x.o_res(.025, 50, 6.67, 293, 1))
+plt.plot(x.approx_flux(.025, 50, 10e6, 1))
+print(f"RA: {x.RA(.025, 50, 6.67,  10e6, 293, 1)}")
+print(f"REP: {x.escape_prob(10e6)}")
+plt.show()
