@@ -227,7 +227,7 @@ class Reactor:
         for i in O_res:
             o_res_int += i
 
-        #print(o_res_int)
+        #print(f"o_res int: {o_res_int}")
         return O_res
 
 
@@ -235,9 +235,10 @@ class Reactor:
         appFlux = []
         sig_s = rx_data.microscopic_cross_sections['U238']['xs_scattering'] * 1e-24
         sig_f = (rx_data.microscopic_cross_sections['U238']['xs_fission'] + rx_data.microscopic_cross_sections['U235']['xs_fission']) * 1e-24
-        # convert to Kg/cm3 s
 
-        S = (S)/(sig_f * 200)
+        # convert to Kg/cm3 s
+        #S = (S)/(sig_f * 200)
+        S = (S * 10e-6) / (sig_f * 200000000)
         A_w = 18
         sci = 2 / (A_w + 2 / 3)
 
@@ -247,7 +248,7 @@ class Reactor:
 
         return appFlux
 
-    def RA(self,E1, E2, Eres, S, T, step):
+    def RA(self,E1, E2, Eres, S, T, step):# check flux. I think the problem is that the flux is massive. e40
         RA_int = 0
         N_U = 18.65 / ((1 - self.enrich) * 238 + (self.enrich) * 235) * 6.022e23
         N = (1 - self.enrich) * N_U * 0.5
@@ -271,7 +272,7 @@ class Reactor:
 
         prob = 1 - ((RA) / (S))
 
-        print(S)
+        print(f"S: {S}")
         return prob
 
 def reactor():
