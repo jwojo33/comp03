@@ -1,12 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import math
-import rx_data as rx_data
+import rx_data_2 as rx_data
 import scipy
 
 
 from scipy import linalg
-from Reactor_Slices_Class_Method import ReactorSlice
+from Reactor_Slice_Class_Method import ReactorSlice
 
 class Reactor:
     def __init__(self, slices, reactor_size, enrichment, nu, rxdata, simlulation_time, dt, power):
@@ -157,7 +157,7 @@ class Reactor:
         for s_slice in self.rxslices:
             neutrons_p += s_slice.flux * (s_slice.sig_f * self.nu)
             neutrons_a += s_slice.flux * (s_slice.sig_a + s_slice.sig_f)
-        criticality = neutrons_p / neutrons_a
+        criticality = (neutrons_p / neutrons_a) * self.escape_prob(10e6) #  this is likely the wrong way to apply REP, check with Flanagan
 
         return criticality
 
@@ -215,30 +215,34 @@ class Reactor:
 
     def o_res(self, E1, E2, Eres, T, step):
         O_res = []
-        k = self.calculate_criticality()
-
-        o_r = 13.98 * 10**-24
+        k = 8.617e-5  # eV/K
+        o_r = 13.98 * 1e-24
         o_res_int = 0
-        A_ur = 92
+        A_ur = 92  # if you use the A for water you get much better results, this is the first question to get answered
         while E1 < E2:
             gamma_d = ((4 * Eres * k * T) / A_ur) ** .5
             O_res.append(o_r * (math.exp(-((E1 - Eres) ** 2) / (gamma_d ** 2))))
+            #print(E1)
             E1 += step
         for i in O_res:
             o_res_int += i
-
+        #print(O_res)
         #print(f"o_res int: {o_res_int}")
         return O_res
 
 
-    def approx_flux(self, E1, E2, S, step):
+    def approx_flux(self, E1, E2, P_den, step):
         appFlux = []
-        sig_s = rx_data.microscopic_cross_sections['U238']['xs_scattering'] * 1e-24
-        sig_f = (rx_data.microscopic_cross_sections['U238']['xs_fission'] + rx_data.microscopic_cross_sections['U235']['xs_fission']) * 1e-24
 
+        N_U = 18.65 / ((1 - self.enrich) * 238 + (self.enrich) * 235) * 6.022e23
+        N_U238 = (1 - self.enrich) * N_U * 0.5
+        sig_f = N_U238 * (rx_data.microscopic_cross_sections['U238']['xs_fission'] + rx_data.microscopic_cross_sections['U235']['xs_fission']) * 1e-24
+        sig_s = N_U238 * rx_data.microscopic_cross_sections['U238']['xs_scattering'] * 1e-24
+        # print(sig_f)
         # convert to Kg/cm3 s
-        #S = (S)/(sig_f * 200)
-        S = (S * 10e-6) / (sig_f * 200000000)
+
+        S = (P_den * 1e-6) / (sig_f * (200e6 * 1.602e-19))  # (W/m^3 * 1e-6) / (1/cm * ((MeV)/fission * 1.602e-19))
+        #print(S)
         A_w = 18
         sci = 2 / (A_w + 2 / 3)
 
@@ -252,32 +256,36 @@ class Reactor:
         RA_int = 0
         N_U = 18.65 / ((1 - self.enrich) * 238 + (self.enrich) * 235) * 6.022e23
         N = (1 - self.enrich) * N_U * 0.5
+
         o_res = self.o_res(E1, E2, Eres, T, step)
         approx_flux = self.approx_flux(E1, E2, S, step)
 
         i = 0
-        while i < step:
+        while i < E2:
             RA_int += o_res[i] * approx_flux[i]
-            i += 1
+            i += step
+
         RA = N * RA_int
 
         return RA
 
     def escape_prob(self,S):
-        RA = self.RA(0.025,50,6.67,10e6,293,1)
-        sig_f = (rx_data.microscopic_cross_sections['U238']['xs_fission'] + rx_data.microscopic_cross_sections['U235'][
-            'xs_fission']) * 1e-24
+        RA = self.RA(0.025,50,6.67,S,1000,1)
+
+        N_U = 18.65 / ((1 - self.enrich) * 238 + (self.enrich) * 235) * 6.022e23
+        N_U238 = (1 - self.enrich) * N_U * 0.5
+        sig_f = N_U238 * (rx_data.microscopic_cross_sections['U238']['xs_fission'] +
+                          rx_data.microscopic_cross_sections['U235']['xs_fission']) * 1e-24
         # convert to Kg/cm3 s
-        S = (S * 10e-6) / (sig_f * 200000000)
+        S = (S * 1e-6) / (sig_f * (200e6 * 1.602e-19))
+        #print(S)
+        prob = 1 - (RA / S)
 
-        prob = 1 - ((RA) / (S))
-
-        print(f"S: {S}")
         return prob
 
 def reactor():
         rxdata = [rx_data.microscopic_cross_sections, rx_data.fission_yield]
-        x = Reactor(8, 2,.024,2.4, rxdata, 180*86400,86400,0.001)
+        x = Reactor(8, 2,.024,2.4, rxdata, 60*86400,8640,0.001)
         x.burn_reactor()
         return x
 
@@ -285,9 +293,9 @@ def reactor():
 
 x = reactor()
 
-#plt.plot(x.k)
-#plt.title('Criticality')
-#plt.show()
+plt.plot(x.k)
+plt.title('Criticality')
+plt.show()
 #x.plot_flux()
 #x.plot_iso(0)
 #x.plot_iso(1)
@@ -304,10 +312,11 @@ x = reactor()
 #x.plot_flux_by_time()
 
 
-
-# plot o_res
-#plt.plot(x.o_res(.025, 50, 6.67, 293, 1))
-plt.plot(x.approx_flux(.025, 50, 10e6, 1))
-print(f"RA: {x.RA(.025, 50, 6.67,  10e6, 293, 1)}")
+''
+#plot o_res
+#plt.plot(x.o_res(.025, 50, 6.67, 500, 1))
+#plt.show()
+#plt.plot(x.approx_flux(.025, 50, 10e6, 1))
+print(f"RA: {x.RA(.025, 50, 6.67,  10e6, 500, 1)}")
 print(f"REP: {x.escape_prob(10e6)}")
-plt.show()
+#plt.show()
