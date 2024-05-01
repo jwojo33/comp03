@@ -1,12 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import math
-import rx_data_2 as rx_data
+import rx_data as rx_data
 import scipy
 
 
 from scipy import linalg
-from Reactor_Slice_Class_Method import ReactorSlice
+from Reactor_Slices_Class import ReactorSlice
 
 class Reactor:
     def __init__(self, slices, reactor_size, enrichment, nu, rxdata, simlulation_time, dt, power):
@@ -218,7 +218,7 @@ class Reactor:
         k = 8.617e-5  # eV/K
         o_r = 13.98 * 1e-24
         o_res_int = 0
-        A_ur = 92  # if you use the A for water you get much better results, this is the first question to get answered
+        A_ur = 18  # if you use the A for water you get much better results, this is the first question to get answered
         while E1 < E2:
             gamma_d = ((4 * Eres * k * T) / A_ur) ** .5
             O_res.append(o_r * (math.exp(-((E1 - Eres) ** 2) / (gamma_d ** 2))))
@@ -270,7 +270,7 @@ class Reactor:
         return RA
 
     def escape_prob(self,S):
-        RA = self.RA(0.025,50,6.67,S,1000,1)
+        RA = self.RA(0.025,50,6.67,S,500,1)
 
         N_U = 18.65 / ((1 - self.enrich) * 238 + (self.enrich) * 235) * 6.022e23
         N_U238 = (1 - self.enrich) * N_U * 0.5
@@ -278,7 +278,7 @@ class Reactor:
                           rx_data.microscopic_cross_sections['U235']['xs_fission']) * 1e-24
         # convert to Kg/cm3 s
         S = (S * 1e-6) / (sig_f * (200e6 * 1.602e-19))
-        #print(S)
+        #print(f"S: {S}")
         prob = 1 - (RA / S)
 
         return prob
@@ -319,4 +319,4 @@ plt.show()
 #plt.plot(x.approx_flux(.025, 50, 10e6, 1))
 print(f"RA: {x.RA(.025, 50, 6.67,  10e6, 500, 1)}")
 print(f"REP: {x.escape_prob(10e6)}")
-#plt.show()
+plt.show()
